@@ -143,55 +143,27 @@ export default function FlashcardGenerator() {
       return;
     }
     setLoading(true);
-
+  
     try {
-      const maxTokens = 3000;
-      const trimmedText = text.length > maxTokens ? text.substring(0, maxTokens) : text;
-
-      // Adjust the system prompt based on lecture slides detection
-      const systemPrompt = isLectureSlides
-        ? "You are an AI that extracts key points from lecture slides and formats them as flashcards. Respond ONLY with valid JSON, structured as a list of objects, without markdown formatting."
-        : "You are an AI that extracts key points and formats them as flashcards. Respond ONLY with valid JSON, structured as a list of objects, without markdown formatting.";
-
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch("/api/generateFlashcards", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
         },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: systemPrompt
-            },
-            {
-              role: "user",
-              content: `Extract key points from the following text and convert them into question-answer flashcards. Try to make a flashcard per a keypoint.
-              - Format the response as a **pure JSON array**.
-              - Do **NOT** include any markdown, code blocks, or additional text.
-              - The format MUST be: [{"question": "...", "answer": "..."}].
-              - If the text is unclear, generate reasonable flashcards based on the content.
-              
-              Here is the text:\n\n${trimmedText}`
-            }
-          ],
-          max_tokens: 700,
-        }),
+        body: JSON.stringify({ text, isLectureSlides }),
       });
-
+  
       const data = await response.json();
-
-      if (!data.choices || data.choices.length === 0 || !data.choices[0].message) {
+  
+      if (!data.choices || data.choices.length === 0) {
         throw new Error("Unexpected API response structure.");
       }
-
+  
       let aiResponse = data.choices[0].message.content.trim();
-
-      // Remove unwanted markdown formatting (```json and ```)
+  
+      // Clean up any unwanted formatting
       aiResponse = aiResponse.replace(/```json/g, "").replace(/```/g, "").trim();
-
+  
       try {
         const parsedFlashcards = JSON.parse(aiResponse);
         setFlashcards(parsedFlashcards);
@@ -202,11 +174,12 @@ export default function FlashcardGenerator() {
       }
     } catch (error) {
       console.error("Error generating flashcards:", error);
-      alert("Failed to generate flashcards. Please check your OpenAI API key.");
+      alert("Failed to generate flashcards. Please check your server logs.");
     }
-
+  
     setLoading(false);
   };
+  
 
   // Flashcard Navigation & Flip
   const toggleFlip = () => {
